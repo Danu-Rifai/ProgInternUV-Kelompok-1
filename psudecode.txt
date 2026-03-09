@@ -1,0 +1,18 @@
+inisiasi range warna HSV merah, hijau, dan hitam
+inisiasi kamera
+bangun komunikasi dengan komponen penggerak (thruster)
+deployment model computer vision 
+ambil data dari kamera
+apakah ada objek:
+	jika iya
+		melihat bola warna merah dan hijau
+			lurus dan lewati jalur diantara bola
+		hanya melihat bola warna merah
+			Gerakan cenderung ke kiri
+		hanya melihat bola warna hijau
+			Gerakan cenderung ke kanan
+		jika melihat hitam
+			posisikan bola hitam di frame kanan kamera dan Gerakan memutari objek 240 derajat
+	jika tidak
+		kapal berhenti
+
