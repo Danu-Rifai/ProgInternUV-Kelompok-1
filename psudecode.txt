@@ -1,6 +1,8 @@
 START
 
-deployment model computer vision 
+deployment model computer vision
+    muat model CV dari penyimpanan lokal ke memori komputer
+    atur resolusi input model
 inisiasi kamera
 bangun komunikasi dengan komponen penggerak (thruster)
 ambil data dari kamera
