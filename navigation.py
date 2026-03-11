@@ -2,32 +2,26 @@ import time
 from config import (
     CLASS_MERAH, CLASS_HIJAU, CLASS_HITAM,
     FRAME_WIDTH, FRAME_HEIGHT,
-    CENTER_LINE_X_RATIO,
     BLACK_BALL_RIGHT_THRESHOLD,
-    CENTER_TOLERANCE,
     NO_OBJECT_FINISH_SECONDS
 )
 
-
 # State navigasi
-STATE_STRAIGHT      = 'STRAIGHT'       # Kedua bola merah+hijau terlihat
-STATE_AVOID_RIGHT   = 'AVOID_RIGHT'    # Hanya bola merah == belok kanan
-STATE_AVOID_LEFT    = 'AVOID_LEFT'     # Hanya bola hijau == belok kiri
-STATE_ORBIT_BLACK   = 'ORBIT_BLACK'    # Bola hitam terlihat == putar
-STATE_FINISH        = 'FINISH'         # Tidak ada objek == selesai
-STATE_IDLE          = 'IDLE'           # Awal sebelum mulai
+STATE_STRAIGHT    = 'STRAIGHT'
+STATE_AVOID_RIGHT = 'AVOID_RIGHT'
+STATE_AVOID_LEFT  = 'AVOID_LEFT'
+STATE_ORBIT_BLACK = 'ORBIT_BLACK'
+STATE_FINISH      = 'FINISH'
+STATE_IDLE        = 'IDLE'
 
 
 class NavigationFSM:
     def __init__(self, controller):
-        self.ctrl = controller
-        self.state = STATE_IDLE
-        self.no_object_timer = None   # timestamp saat objek pertama kali hilang
-        self._prev_state = None
+        self.ctrl            = controller
+        self.state           = STATE_IDLE
+        self.no_object_timer = None
 
-    # Update utama (dipanggil setiap frame)
     def update(self, detections, frame_w=FRAME_WIDTH, frame_h=FRAME_HEIGHT):
-        # Ambil objek paling dekat per warna
         closest_red   = self._closest(detections, CLASS_MERAH)
         closest_green = self._closest(detections, CLASS_HIJAU)
         closest_black = self._closest(detections, CLASS_HITAM)
@@ -38,22 +32,33 @@ class NavigationFSM:
 
         info = ""
 
-        # PRIORITAS = Bola Hitam (manuver berputar)
-        if has_black:
+        # Kumpulkan cy semua objek terdekat per warna
+        # cy terbesar = paling bawah di frame = paling dekat ke kapal
+        candidates = {}
+        if has_red:   candidates[CLASS_MERAH] = closest_red['cy']
+        if has_green: candidates[CLASS_HIJAU] = closest_green['cy']
+        if has_black: candidates[CLASS_HITAM] = closest_black['cy']
+
+        # nearest_label = warna objek yang PALING DEKAT secara keseluruhan
+        nearest_label = max(candidates, key=candidates.get) if candidates else None
+
+        # ORBIT HITAM: hanya jika hitam adalah objek PALING DEKAT
+        # Jika merah/hijau lebih dekat dari hitam, abaikan hitam
+        if has_black and nearest_label == CLASS_HITAM:
             self._transition(STATE_ORBIT_BLACK)
             info = self._handle_orbit_black(closest_black, frame_w)
             self.no_object_timer = None
             return self.state, info
 
-        # Bola Merah + Hijau == Lurus
+        # Merah + Hijau keduanya terdeteksi == Lurus
         if has_red and has_green:
             self._transition(STATE_STRAIGHT)
             self.ctrl.go_straight()
-            info = "Lurus (merah + hijau terdeteksi)"
+            info = f"Lurus — merah(cy={closest_red['cy']}) hijau(cy={closest_green['cy']})"
             self.no_object_timer = None
             return self.state, info
 
-        # Hanya Merah == manuver Kanan
+        # Hanya Merah == Belok Kanan
         if has_red and not has_green:
             self._transition(STATE_AVOID_RIGHT)
             self.ctrl.steer_right()
@@ -61,7 +66,7 @@ class NavigationFSM:
             self.no_object_timer = None
             return self.state, info
 
-        # Hanya Hijau == Manucver Kiri
+        # Hanya Hijau == Belok Kiri
         if has_green and not has_red:
             self._transition(STATE_AVOID_LEFT)
             self.ctrl.steer_left()
@@ -69,14 +74,14 @@ class NavigationFSM:
             self.no_object_timer = None
             return self.state, info
 
-        # Tidak ada objek == countdown Finish
+        # Tidak ada objek == countdown FINISH
         now = time.time()
         if self.no_object_timer is None:
             self.no_object_timer = now
 
-        elapsed = now - self.no_object_timer
+        elapsed   = now - self.no_object_timer
         remaining = max(0.0, NO_OBJECT_FINISH_SECONDS - elapsed)
-        info = f"Tidak ada objek — Finish dalam {remaining:.1f}s"
+        info = f"Tidak ada objek — FINISH dalam {remaining:.1f}s"
 
         if elapsed >= NO_OBJECT_FINISH_SECONDS:
             self._transition(STATE_FINISH)
@@ -84,29 +89,20 @@ class NavigationFSM:
             self.ctrl.disarm()
             return self.state, "FINISH — Kapal berhenti."
 
-        # Sambil menunggu, tetap lurus
+        # Sambil menunggu tetap lurus
         self.ctrl.go_straight()
         return self.state, info
 
-    # Manuver bola hitam
     def _handle_orbit_black(self, black_obj, frame_w):
-        cx_black = black_obj['cx']
-        ratio = cx_black / frame_w
-        threshold = BLACK_BALL_RIGHT_THRESHOLD
-
-        if ratio >= threshold:
-            # Bola hitam sudah di kanan == putar kanan 
-            self.ctrl.rotate_right()
-            return f"ORBIT: bola hitam di kanan ({ratio:.2f}) == putar kanan"
+        ratio = black_obj['cx'] / frame_w
+        self.ctrl.rotate_right()
+        if ratio >= BLACK_BALL_RIGHT_THRESHOLD:
+            return f"ORBIT: hitam di kanan ({ratio:.2f}) == putar kanan"
         else:
-            # Bola hitam ke kiri == putar lebih kencang ke kanan agar bola
-            # kembali ke sisi kanan
-            self.ctrl.rotate_right()
-            return f"ORBIT: bola hitam di kiri ({ratio:.2f}) == koreksi kanan"
+            return f"ORBIT: hitam ke kiri ({ratio:.2f}) == koreksi kanan"
 
-    # Helper
     def _closest(self, detections, label):
-        # Objek dengan cy terbesar (paling bawah frame = paling dekat)
+        """Ambil objek dengan cy terbesar (paling bawah = paling dekat)."""
         filtered = [d for d in detections if d['label'] == label]
         if not filtered:
             return None
@@ -115,7 +111,6 @@ class NavigationFSM:
     def _transition(self, new_state):
         if new_state != self.state:
             print(f"[FSM] {self.state} == {new_state}")
-            self._prev_state = self.state
             self.state = new_state
 
     @property
