@@ -9,7 +9,6 @@ from detector import ObjectDetector
 from mavlink_controller import MAVLinkController
 from navigation import NavigationFSM
 
-
 def main():
     # Inisialisasi Kamera
     print("[Main] Membuka kamera...")
