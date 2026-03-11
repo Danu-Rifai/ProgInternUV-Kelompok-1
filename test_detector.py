@@ -47,7 +47,7 @@ def main():
             continue
 
         detections = detector.detect(frame)
-        state, info = nav.update(detections, FRAME_WIDTH, FRAME_HEIGHT)
+        state, info = nav.update(detections, FRAME_WIDTH)
 
         frame_vis = detector.draw(frame.copy(), detections)
 
