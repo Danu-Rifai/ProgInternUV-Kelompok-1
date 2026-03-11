@@ -8,7 +8,6 @@ from config import (
     STEER_HARD_RIGHT, STEER_HARD_LEFT
 )
 
-
 class MAVLinkController:
     def __init__(self):
         print(f"[MAVLink] Menghubungkan ke {MAVLINK_CONNECTION} ...")
