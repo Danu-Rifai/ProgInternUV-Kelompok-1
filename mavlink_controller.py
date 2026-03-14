@@ -30,7 +30,7 @@ class MAVLinkController:
         self.conn.motors_disarmed_wait()
         print("[MAVLink] Disarmed.")
 
-    # Set Mode
+    # Set STEER_HARD_LEFT = 1300     # PWM putar kiri
     def set_mode(self, mode_name='MANUAL'):
         mode_id = self.conn.mode_mapping().get(mode_name)
         if mode_id is None:
@@ -71,7 +71,7 @@ class MAVLinkController:
         self.send_rc(STEER_LEFT, BASE_THROTTLE)
 
     def rotate_right(self):
-        # Putar kanan keras (manuver bola hitam)
+        # Putar kanan keras (manuver bola hitam)==
         self.send_rc(STEER_HARD_RIGHT, BASE_THROTTLE)
 
     def rotate_left(self):
